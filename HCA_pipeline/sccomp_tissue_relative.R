@@ -11,8 +11,8 @@ source("https://gist.githubusercontent.com/stemangiola/fc67b08101df7d550683a5100
 args = commandArgs(trailingOnly=TRUE)
 filter_blood = args[[1]]
 input_file = args[[2]]
-input_blood_proportion = args[[3]]
-output_file_1 = args[[4]]
+output_file_1 = args[[3]]
+input_blood_proportion = args[[4]]
 output_file_2 = args[[5]]
 
 my_data =

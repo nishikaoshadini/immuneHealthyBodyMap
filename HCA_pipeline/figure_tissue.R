@@ -8,11 +8,10 @@ library(patchwork)
 library(glue)
 source("https://gist.githubusercontent.com/stemangiola/fc67b08101df7d550683a5100106561c/raw/a0853a1a4e8a46baf33bad6268b09001d49faf51/ggplot_theme_multipanel")
 
-# Read arguments
-args = commandArgs(trailingOnly = TRUE)
-relative_assay = "~/PostDoc/CuratedAtlasQueryR/dev/sccomp_on_HCA_0.2.1/assay_relative_FALSE.rds" # args[[1]]
-file_for_annotation_workflow = args[[2]]
-output_path = args[[3]]
+# # Read arguments
+# args = commandArgs(trailingOnly = TRUE)
+# file_for_annotation_workflow = args[[2]]
+# output_path = args[[3]]
 
 ## from http://tr.im/hH5A
 
@@ -40,17 +39,11 @@ clean_names = function(x){
 
 metadata_DB = get_metadata()
 
-data_for_immune_proportion_absolute_file = "~/PostDoc/CuratedAtlasQueryR/dev/sccomp_on_HCA_0.2.1/input_absolute.rds"
-cell_metadata_with_harmonised_annotation = readRDS(data_for_immune_proportion_absolute_file)
-
-
-
-
 # LOADING RESULTS
 
-res_absolute = readRDS("~/PostDoc/CuratedAtlasQueryR/dev/sccomp_on_HCA_0.2.1/tissue_absolute_FALSE.rds")
-data_for_immune_proportion = readRDS("~/PostDoc/CuratedAtlasQueryR/dev/sccomp_on_HCA_0.2.1//input_absolute.rds")
-res_absolute_adjusted = readRDS("~/PostDoc/CuratedAtlasQueryR/dev/sccomp_on_HCA_0.2.1//tissue_absolute_FALSE_proportion_adjusted.rds")
+res_absolute = readRDS("~/PostDoc/immuneHealthyBodyMap/sccomp_on_HCA_0.2.1/tissue_absolute_FALSE.rds")
+data_for_immune_proportion = readRDS("~/PostDoc/immuneHealthyBodyMap/sccomp_on_HCA_0.2.1/input_absolute.rds")
+res_absolute_adjusted = readRDS("~/PostDoc/immuneHealthyBodyMap/sccomp_on_HCA_0.2.1/tissue_absolute_FALSE_proportion_adjusted.rds")
 
 lymphoid_organs = c("blood", "spleen", "bone", "thymus", "lymph node")
 
@@ -212,11 +205,14 @@ plot_abundance_variability =
   scale_fill_brewer(palette = "Set1") +
   theme_multipanel
 
-# cell_metadata_with_harmonised_annotation =
-#   readRDS("~/PostDoc/HCAquery/dev/cell_metadata_with_harmonised_annotation.rds")
+rm( res_absolute_adjusted, res_for_plot )
+gc()
+
+# data_for_immune_proportion =
+#   readRDS("~/PostDoc/HCAquery/dev/data_for_immune_proportion.rds")
 #
 # # Stats
-# cell_metadata_with_harmonised_annotation |>
+# data_for_immune_proportion |>
 #
 #   mutate(is_immune = cell_type_harmonised!="non_immune") |>
 #
@@ -225,25 +221,16 @@ plot_abundance_variability =
 #   with_groups(.sample, ~ .x |> mutate(proportion = n/sum(n))) |>
 #   filter(tissue_harmonised=="heart" & proportion > 0.75)
 
+# RELATIVE
 
-
-proportions_tissue_adjusted = res_absolute_adjusted
-
-proportions_tissue_replicate =
-  readRDS("~/PostDoc/HCAquery/dev/immune_non_immune_differential_composition_relative_5.rds") |> replicate_data (~ 0 + tissue_harmonised)
-proportions_tissue_replicate |> saveRDS("~/PostDoc/HCAquery/dev/immune_non_immune_differential_composition_relative_5_replicate.rds")
-
-proportions_tissue_replicate = readRDS("~/PostDoc/HCAquery/dev/immune_non_immune_differential_composition_relative_5_replicate.rds")
-
-res_absolute_cell_types = readRDS("dev/immune_non_immune_differential_composition_relative_5.rds")
-
-proportions_tissue_adjusted = readRDS("~/PostDoc/HCAquery/dev/proportions_tissue_adjusted_5.rds")
-immune_non_immune_differential_composition_cell_types_adjusted = readRDS("~/PostDoc/HCAquery/dev/immune_non_immune_differential_composition_cell_types_adjusted.rds")
+res_relative = readRDS("~/PostDoc/immuneHealthyBodyMap/sccomp_on_HCA_0.2.1/tissue_relative_FALSE.rds")
+data_for_immune_proportion_relative = readRDS("~/PostDoc/immuneHealthyBodyMap/sccomp_on_HCA_0.2.1/input_relative.rds")
+res_relative_adjusted = readRDS("~/PostDoc/immuneHealthyBodyMap/sccomp_on_HCA_0.2.1/tissue_relative_FALSE_proportion_adjusted.rds")
 
 
 library(tidybulk)
 observed_proportion_PCA_df =
-  data_for_immune_proportion |>
+	data_for_immune_proportion_relative |>
   
   # Mutate days
   filter(development_stage!="unknown") |>
@@ -289,7 +276,7 @@ observed_proportion_PCA_batch =
   )
 
 adjusted_proportion_PCA =
-  immune_non_immune_differential_composition_cell_types_adjusted |>
+	res_relative_adjusted |> 
   left_join(
     data_for_immune_proportion_relative |>
       distinct(.sample, tissue_harmonised, assay, file_id, sex, ethnicity)
@@ -312,15 +299,15 @@ adjusted_proportion_PCA =
     axis.ticks.x = element_blank()
   )
 
-res_absolute_for_PCA =
-  res_absolute_cell_types |>
-  filter(covariate == "tissue_harmonised") |>
+ res_absolute_for_PCA =
+  res_relative |>
+  filter(factor == "tissue_harmonised") |>
   mutate(parameter = parameter |> str_remove("tissue_harmonised")) |>
   filter(cell_type_harmonised != "immune_unclassified") |>
   rename(feature=cell_type_harmonised) |>
   bind_rows(
     res_absolute |>
-      filter(covariate=="tissue_harmonised") |>
+      filter(factor=="tissue_harmonised") |>
       mutate(parameter = parameter |> str_remove("tissue_harmonised")) |>
       filter(is_immune=="TRUE") |>
       mutate(is_immune = "immune") |>
@@ -350,106 +337,34 @@ plot_tissue_PCA =
 library(ggforce)
 library(ggpubr)
 
-circle_plot = function(res){
-  
-  logsumexp <- function (x) {
-    y = max(x)
-    y + log(sum(exp(x - y)))
-  }
-  softmax <- function (x) {
-    
-    exp(x - logsumexp(x))
-  }
-  
-  res_relative_for_plot =
-    res |>
-    filter(!parameter |> str_detect("group___")) |>
-    
-    # Cell type abundance
-    with_groups(tissue_harmonised, ~ .x |>  mutate(proportion = softmax(c_effect))) |>
-    with_groups(cell_type_harmonised, ~ .x |>  mutate(cell_type_mean_abundance = mean(proportion))) |>
-    
-    # Filter for visualisation
-    filter(!cell_type_harmonised %in% c("non_immune", "immune_unclassified")) |>
-    
-    # Tissue diversity
-    with_groups(tissue_harmonised, ~ .x |>  mutate(inter_type_diversity = sd(c_effect))) |>
-    
-    # First rank
-    with_groups(cell_type_harmonised, ~ .x |> arrange(desc(c_effect)) |>  mutate(rank = 1:n())) |>
-    
-    # Cap
-    mutate(c_effect = c_effect |> pmax(-5) |> pmin(5))
-  
-  inter_type_diversity_plot =
-    res_relative_for_plot |>
-    distinct(inter_type_diversity, tissue_harmonised) |>
-    ggplot(aes(inter_type_diversity, fct_reorder(tissue_harmonised, inter_type_diversity))) +
-    geom_bar(stat = "identity") +
-    scale_x_reverse() +
-    xlab("Diversity") +
-    ylab("Tissue") +
-    theme_multipanel
-  
-  cell_type_mean_abundance_plot =
-    res_relative_for_plot |>
-    distinct(cell_type_mean_abundance, cell_type_harmonised) |>
-    ggplot(aes(fct_reorder(cell_type_harmonised, dplyr::desc(cell_type_mean_abundance)), cell_type_mean_abundance)) +
-    geom_bar(stat = "identity") +
-    scale_y_continuous(position = "right") +
-    theme_multipanel +
-    theme(
-      axis.text.x = element_blank(),
-      axis.title.x = element_blank(),
-      axis.ticks.x = element_blank(),
-      axis.title.y = element_blank(),
-    )
-  
-  circle_plot =
-    res_relative_for_plot |>
-    arrange(rank==1) |>
-    ggplot() +
-    geom_point(aes(
-      fct_reorder(cell_type_harmonised, dplyr::desc(cell_type_mean_abundance)),
-      fct_reorder(tissue_harmonised, inter_type_diversity) ,
-      fill = rank, size = c_effect, stroke=rank==1), shape=21
-    ) +
-    scale_size_continuous(range = c(0.5, 3)) +
-    xlab("Cell type") +
-    theme_multipanel +
-    theme(
-      axis.text.x = element_text(angle=30, hjust = 1, vjust = 1),
-      axis.text.y = element_blank(),
-      axis.title.y = element_blank(),
-      axis.ticks.y = element_blank()
-    )
-  
-  
-  plot_spacer() +
-    cell_type_mean_abundance_plot +
-    inter_type_diversity_plot +
-    circle_plot +
-    plot_layout(guides = 'collect', height = c(1,11), width = c(1, 8)) &
-    theme( plot.margin = margin(0, 0, 0, 0, "pt"), legend.position = "bottom")
-  
-}
+
+tissue_color =
+	data_for_immune_proportion_relative |>
+	distinct(tissue_harmonised ) |>
+	arrange(tissue_harmonised) |>
+	mutate(color = dittoSeq::dittoColors()[1:n()]) |>
+	deframe()
+
+
+source("https://gist.githubusercontent.com/stemangiola/cfa08c45c28fdf223d4996a6c1256a39/raw/a175f7d0fe95ce663a440ecab0023ca4933e5ab8/color_cell_types.R")
+
+cell_type_color = 
+	data_for_immune_proportion |> 
+	pull(cell_type_harmonised) |> 
+	unique() |> 
+	get_cell_type_color()
+
+names(cell_type_color) = names(cell_type_color) |>  str_replace("macrophage", "macro")
+
 
 
 df_heatmap_relative_organ_cell_type =
   res_relative |>
-  filter(covariate == "tissue_harmonised") |>
+  filter(factor == "tissue_harmonised") |>
   mutate(tissue_harmonised =   parameter ) |>
   clean_names() |>
   mutate(tissue =   tissue_harmonised ) |>
-  
   mutate(cell_type = cell_type_harmonised |> str_replace("macrophage", "macro")) |>
-  
-  
-  
-  
-  
-  
-  
   filter(cell_type !="immune_unclassified") |>
   
   # Color
@@ -471,25 +386,35 @@ df_heatmap_relative_organ_cell_type =
   with_groups(cell_type, ~ .x |>  mutate(`Mean diff` = mean(proportion, na.rm = TRUE))) |>
   mutate(cell_type = fct_reorder(cell_type, -`Mean diff`))
 
+library(tidyHeatmap)
+library(ComplexHeatmap)
+
+arcsin_sqrt = function(x) asin(sqrt(x))
 
 plot_circle_relative_tissue =
   df_heatmap_relative_organ_cell_type |>
-  
+  filter(cell_type != "non_immune") |> 
+	with_groups(parameter, ~ .x |> mutate(proportion = softmax(c_effect))) |> 
+  mutate(proportion_label = proportion |> round(3) |> dropLeadingZero())  |> 
+  	
+  # mutate(color_label = ifelse(proportion > 0.5, "black", "white")) |> 
+  #	mutate(proportion_text = as.character(proportion)) |> 
   # Heatmap
   heatmap(
-    tissue, cell_type, c_effect,
+    tissue, cell_type, proportion,
     # palette_value = circlize::colorRamp2(
     #   seq(-3, 3, length.out = 11),
     #   RColorBrewer::brewer.pal(11, "Spectral")
     # ),
-    palette_value = circlize::colorRamp2(c(-5, -2.5, 0, 2.5, 5), viridis::viridis(5)),
+    palette_value = circlize::colorRamp2(seq(-8, -2, length=5), viridis::magma(5)),
     cluster_columns = FALSE,
     row_names_gp = gpar(fontsize = 6),
     column_names_gp = gpar(fontsize = 6),
     column_title_gp = gpar(fontsize = 0),
     row_title_gp = gpar(fontsize = 0),
     show_heatmap_legend = FALSE,
-    row_km = 2
+    row_km = 2, 
+    transform = car::logit
   ) |>
   split_rows(6) |>
   annotation_bar(`Mean diff`, annotation_name_gp= gpar(fontsize = 8), size = unit(0.4, "cm")) |>
@@ -516,63 +441,55 @@ plot_circle_relative_tissue =
     count_tissue, show_legend = FALSE,
     size = unit(0.2, "cm"),
     palette = circlize::colorRamp2(c(0, 5, 10, 15), viridis::magma(4))
-  ) |>
-  layer_point(top_3)
-
-
-# 	circle_plot() +
-#   scale_fill_viridis_c(direction = -1)
-
-
-#job::job({ plot_summary_res_relative = res_relative |> plot_summary() })
-
+  )  |>
+	layer_text(.value = proportion_label, .size = 4)
 
 
 # Compose plot
-
 second_line_first_column =
   
-  plot_immune_proportion_dataset /
-  (
-    observed_proportion_PCA_tissue |
-      observed_proportion_PCA_batch |
-      adjusted_proportion_PCA
-  ) /
-  plot_tissue_PCA +
-  plot_layout( guides = 'collect', height = c(4, 1, 2)  )   &
+  plot_immune_proportion_dataset +
   theme( plot.margin = margin(0, 0, 0, 0, "pt"),  legend.key.size = unit(0.2, 'cm'), legend.position="bottom")
 
 
 second_line_second_column =
   (
     plot_abundance_variability /
-      wrap_heatmap(plot_circle_relative_tissue, padding = unit(c(-67, -10, -0, -30), "points" ))
+    	(
+    		observed_proportion_PCA_tissue |
+    			observed_proportion_PCA_batch |
+    			adjusted_proportion_PCA
+    	) /
+    	plot_tissue_PCA 
+      
   ) +
-  plot_layout( guides = 'collect', height = c(1,2) )   &
+  plot_layout( guides = 'collect', heights = c(2, 1, 2) )   &
   theme( plot.margin = margin(0, 0, 0, 0, "pt"),  legend.key.size = unit(0.2, 'cm'), legend.position="bottom")
+
 
 
 p =
   (
-    second_line_first_column |
-      second_line_second_column
-  ) +
-  plot_layout(ncol=2,  width = c(1,1.5) )  &
+  	((second_line_first_column | second_line_second_column ) + plot_layout( width = c(1,1.5) )) /
+    wrap_heatmap(plot_circle_relative_tissue, padding = unit(c(-67, -10, -0, -30), "points" ))
+  ) + 
+	plot_layout( guides = 'collect', heights = c(1,1) ) &
   theme( plot.margin = margin(0, 0, 0, 0, "pt"),  legend.key.size = unit(0.2, 'cm'), legend.position="bottom")
 
 
 
 
 ggsave(
-  "~/PostDoc/sccomp_dev/dev/article_figures/HCA_tissue.pdf",
+  "~/PostDoc/immuneHealthyBodyMap/sccomp_on_HCA_0.2.1/figure_tissue.pdf",
   plot = p,
   units = c("mm"),
   width = 183 ,
-  height = 150 ,
+  height = 230 ,
   limitsize = FALSE
 )
 
 
-
+plot_circle_relative_tissue |> 
+	save_pdf("~/PostDoc/immuneHealthyBodyMap/sccomp_on_HCA_0.2.1/figure_tissue_heatmap.pdf", width = 183, height=110, units="mm")
 
 
