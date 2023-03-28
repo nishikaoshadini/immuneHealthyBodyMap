@@ -13,26 +13,30 @@ library(CellChat)
 
 ## from http://tr.im/hH5A
 
-# get_metadata_local(cache_directory = "/vast/projects/RCP/human_cell_atlas/metadata_annotated_0.2.1.sqlite") |>  filter(.cell == "GCACTAATCCTGGCTT_TSP1_endopancreas_1") |> select(.cell, file_id, lineage_1)
 
-
+# Read results
 differential_composition_age_absolute_file = "~/PostDoc/CuratedAtlasQueryR/dev/sccomp_on_HCA_0.2.1/age_absolute_FALSE.rds"
 data_for_immune_proportion_absolute_file = "~/PostDoc/CuratedAtlasQueryR/dev/sccomp_on_HCA_0.2.1/input_absolute.rds"
 proportions_age_absolute_file = "~/PostDoc/CuratedAtlasQueryR/dev/sccomp_on_HCA_0.2.1/age_absolute_FALSE_proportion_adjusted.rds"
 
+
+# Calculate softmax from an array of reals
 softmax <- function (x) {
-  logsumexp <- function (x) {
-    y = max(x)
-    y + log(sum(exp(x - y)))
-  }
-  
-  exp(x - logsumexp(x))
+	logsumexp <- function (x) {
+		y = max(x)
+		y + log(sum(exp(x - y)))
+	}
+	
+	exp(x - logsumexp(x))
 }
 
+# This function is used to format ggplots to save space
 dropLeadingZero <-
-  function(l) {
-    stringr::str_replace(l, '0(?=.)', '')
-  }
+	function(l) {
+		stringr::str_replace(l, '0(?=.)', '')
+	}
+
+# Scale axis for ggplot
 S_sqrt <- function(x) {
   sign(x) * sqrt(abs(x))
 }
@@ -55,12 +59,12 @@ clean_names = function(x){
   )
 }
 
-## from http://tr.im/hH5A
+# Read result for immune composition
 data_for_immune_proportion = readRDS(data_for_immune_proportion_absolute_file)
-
 data_for_immune_proportion_relative_file = "~/PostDoc/CuratedAtlasQueryR/dev/sccomp_on_HCA_0.2.1/input_relative.rds"
 data_for_immune_proportion_relative = readRDS(data_for_immune_proportion_relative_file)
 
+# Set up tissue color palette
 tissue_color =
   data_for_immune_proportion_relative |>
   distinct(tissue_harmonised ) |>
@@ -68,35 +72,22 @@ tissue_color =
   mutate(color = dittoSeq::dittoColors()[1:n()]) |>
   deframe()
 
-
+# Set up cell type color palette
 source("https://gist.githubusercontent.com/stemangiola/cfa08c45c28fdf223d4996a6c1256a39/raw/a175f7d0fe95ce663a440ecab0023ca4933e5ab8/color_cell_types.R")
-
 cell_type_color = 
   data_for_immune_proportion |> 
   pull(cell_type_harmonised) |> 
   unique() |> 
   get_cell_type_color()
-
 names(cell_type_color) = names(cell_type_color) |>  str_replace("macrophage", "macro")
 
 
-
-
-
-# Communication
+# Read results for communication 
 cdc_weight_fit = 
   readRDS("~/PostDoc/CuratedAtlasQueryR/dev/sccomp_on_HCA_0.2.1/cdc_gene_fit_random_intercept_file_resolved_cells_with_probability.rds") 
 
-S_sqrt <- function(x) {
-  sign(x) * sqrt(abs(x))
-}
-IS_sqrt <- function(x) {
-  x ^ 2 * sign(x)
-}
-S_sqrt_trans <-
-  function()
-    scales::trans_new("S_sqrt", S_sqrt, IS_sqrt)
-
+# This figure is the line plot for the range of difference across all axis
+# This figure will be SUPPLEMENTARY
 lines_cell_type_communication = 
   cdc_weight_fit |>
   unnest(estimate_95) |> 
@@ -115,6 +106,7 @@ lines_cell_type_communication =
            str_replace("naive", "nv")
   ) |> 
   
+	# lot
   ggplot(aes(Estimate, fct_reorder(cell_type, m, .desc = TRUE) )) + 
   geom_vline(xintercept = 0, linetype="dashed", color="grey") + 
   geom_boxplot(outlier.shape = NA, width = 0) + theme(legend.position = "bottom", color="grey60") +
@@ -126,7 +118,9 @@ lines_cell_type_communication =
   theme(axis.text.y = element_text(angle=-40, hjust = 1, vjust = 1))
 
 
-# Volcano plot
+# Volcano plot for the association between communication weight and age
+# for treg, which emerge as imposrtant in the ageing figure
+# And for the most communication depleted cells, including myeloid
 volcano_plot_communication =
   cdc_weight_fit  |>
   unnest(estimate_95) |> 
@@ -150,6 +144,8 @@ volcano_plot_communication =
   ylab("Probability H0") +
   theme_multipanel
 
+# This function draws circle plots about the differences 
+# Associated with age
 draw_cellchat_circle_plot = function (net, color.use = NULL, title.name = NULL, sources.use = NULL,
                                       targets.use = NULL, remove.isolate = FALSE, top = 1, top_absolute = NULL, weight.scale = T,
                                       vertex.weight = 20, vertex.weight.max = NULL, vertex.size.max = 15,
@@ -297,6 +293,7 @@ draw_cellchat_circle_plot = function (net, color.use = NULL, title.name = NULL, 
   return(gg)
 }
 
+# This code bloc create a pdf of circle plots from CellChat
 pdf("~/PostDoc/CuratedAtlasQueryR/dev/circles_communication.pdf", width = 10, height = 33)
 par(mfrow=c(10, 4))
 plot_circles    =
@@ -319,6 +316,8 @@ plot_circles    =
       filter( probability<0.05) |> 
       distinct(gene, DB, tissue_harmonised)
   ) |> 
+	
+	# Adding communication axes abbreviations
   left_join(
     CellChatDB.human$interaction|>
       #filter(pathway_name |> str_detect("CD23|MHC-I$|ICAM|ADGRE5|SELPLG|ITGB2")) |>
@@ -341,7 +340,9 @@ plot_circles    =
   ) |>
   mutate(title = glue("{tissue_harmonised}\n{ligand_receptor}")) |>
   # filter(gene %in% c("CD23", "MHC-I", "ICAM", "ADGRE5", "SELPLG", "ITGB2")) |>
-  mutate(plot = map2(
+  
+	# Render plot per communication axis and tissue
+	mutate(plot = map2(
     gene_data, title,
     ~ {
       
@@ -379,7 +380,7 @@ plot_circles    =
 dev.off()
 
 
-
+# Compose plot with patchwork
 plot_communication = 
   lines_cell_type_communication + 
   volcano_plot_communication + 
