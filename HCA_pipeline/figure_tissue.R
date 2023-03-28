@@ -7,6 +7,13 @@ library(magrittr)
 library(patchwork)
 library(glue)
 source("https://gist.githubusercontent.com/stemangiola/fc67b08101df7d550683a5100106561c/raw/a0853a1a4e8a46baf33bad6268b09001d49faf51/ggplot_theme_multipanel")
+library(ggforestplot)
+library(ggrepel)
+library(tidybulk)
+library(ggforce)
+library(ggpubr)
+library(tidyHeatmap)
+library(ComplexHeatmap)
 
 # # Read arguments
 # args = commandArgs(trailingOnly = TRUE)
@@ -15,7 +22,7 @@ source("https://gist.githubusercontent.com/stemangiola/fc67b08101df7d550683a5100
 
 ## from http://tr.im/hH5A
 
-
+# Calculate softmax from an array of reals
 softmax <- function (x) {
   logsumexp <- function (x) {
     y = max(x)
@@ -25,6 +32,7 @@ softmax <- function (x) {
   exp(x - logsumexp(x))
 }
 
+# This function shorten names of cell types for visualisation purposes
 clean_names = function(x){
   x |>  mutate(
     tissue_harmonised =
@@ -37,34 +45,44 @@ clean_names = function(x){
   )
 }
 
-metadata_DB = get_metadata()
 
-# LOADING RESULTS
-
+# Load results
 res_absolute = readRDS("~/PostDoc/immuneHealthyBodyMap/sccomp_on_HCA_0.2.1/tissue_absolute_FALSE.rds")
 data_for_immune_proportion = readRDS("~/PostDoc/immuneHealthyBodyMap/sccomp_on_HCA_0.2.1/input_absolute.rds")
 res_absolute_adjusted = readRDS("~/PostDoc/immuneHealthyBodyMap/sccomp_on_HCA_0.2.1/tissue_absolute_FALSE_proportion_adjusted.rds")
 
+# Define which are lymphoid organs
 lymphoid_organs = c("blood", "spleen", "bone", "thymus", "lymph node")
 
-res_generated_proportions =
-  res_absolute |>
-  sccomp_replicate(number_of_draws = 20) |>
-  filter(is_immune=="TRUE") |>
-  left_join(
-    data_for_immune_proportion |>
-      select(.sample, tissue_harmonised)
-  ) |>
-  with_groups(tissue_harmonised, ~ .x |> sample_n(30, replace = T))
-
-# -- Rank immune
+# This function is used to format ggplots to save space
 dropLeadingZero <- function(l){  stringr::str_replace(l, '0(?=.)', '') }
+
+# Scale axis for ggplot
 S_sqrt <- function(x){sign(x)*sqrt(abs(x))}
 IS_sqrt <- function(x){x^2*sign(x)}
 S_sqrt_trans <- function() scales::trans_new("S_sqrt",S_sqrt,IS_sqrt)
 
-library(ggforestplot)
+#------------------------------#
+# Analyses of immune cellularity proportion of immune cells in a tissue
+#------------------------------#
 
+# Remove unwanted variation from the immune cellularity
+# Including effect of Age, sex, ethnicity, technology, 
+# and rendom effects line datasets
+# This is used to overlay boxplots on the observed proportions
+res_generated_proportions =
+	res_absolute |>
+	sccomp_replicate(number_of_draws = 20) |>
+	filter(is_immune=="TRUE") |>
+	left_join(
+		data_for_immune_proportion |>
+			select(.sample, tissue_harmonised)
+	) |>
+	with_groups(tissue_harmonised, ~ .x |> sample_n(30, replace = T))
+
+# Plot observed proportions of immune cells across non-lymhoid tissues
+# And overlaying boxplots of the estimated proportion distribution
+# Excluding the unwanted variation
 plot_immune_proportion_dataset =
   data_for_immune_proportion |>
   
@@ -111,17 +129,8 @@ plot_immune_proportion_dataset =
   ylab("Tissue") +
   theme_multipanel
 
-coefficients_regression =
-  res_absolute |>
-  filter(factor == "tissue_harmonised") |>
-  filter(c_effect<1) |>
-  filter(is_immune == "TRUE") |>
-  filter(!parameter %in% c("spleen", "bone", "blood", "lymph node") ) %>%
-  lm( v_effect ~ c_effect, data = .) %$%
-  coefficients
 
-library(ggrepel)
-
+# Calculate the median composition for the abundance/variability plot
 median_composition =
   res_absolute |>
   filter(factor == "tissue_harmonised") |>
@@ -130,6 +139,7 @@ median_composition =
   pull(c_effect) |>
   median()
 
+# Calculate the median variability for the abundance/variability plot
 median_variability =
   res_absolute |>
   filter(factor == "tissue_harmonised") |>
@@ -138,7 +148,18 @@ median_variability =
   pull(v_effect) |>
   median()
 
-# - scatter plot of abundance vs variability per tissue
+# Get estimates
+coefficients_regression =
+	res_absolute |>
+	filter(factor == "tissue_harmonised") |>
+	filter(c_effect<1) |>
+	filter(is_immune == "TRUE") |>
+	filter(!parameter %in% c("spleen", "bone", "blood", "lymph node") ) %>%
+	lm( v_effect ~ c_effect, data = .) %$%
+	coefficients
+
+# Scatter plot of abundance vs variability per tissue 
+# Used for tissue landscape Figure panel B
 res_for_plot =
   res_absolute |>
   filter(factor == "tissue_harmonised") |>
@@ -146,19 +167,9 @@ res_for_plot =
   mutate(parameter = parameter |> str_remove("tissue_harmonised")) |>
   mutate(intercept = coefficients_regression[1], slope = coefficients_regression[2]) |>
   
-  # # Normalise effects
-  # mutate(
-  # 	v_effect = v_effect - (c_effect * slope + intercept),
-  # 	v_lower = v_lower - (c_effect * slope + intercept),
-  # 	v_upper = v_upper - (c_effect * slope + intercept)
-  # ) |>
-  # mutate(
-  # 	c_effect = c_effect - median_composition,
-  # 	c_lower = c_lower - median_composition,
-  # 	c_upper = c_upper - median_composition
-# ) |>
 
-# Define significance
+# Define diversity in abundance and variability across tissues, far from the madian
+# Used for tissue landscape Figure panel B
 mutate(tissue_harmonised = parameter |> str_remove("tissue_harmonised")) |>
   arrange(desc(c_effect)) |>
   mutate(	c_significant = ( row_number() <=7 | row_number() >= n() -3 ) & !tissue_harmonised %in%	c("blood", "lymph node", "spleen", "bone")	) |>
@@ -184,7 +195,8 @@ mutate(tissue_harmonised = parameter |> str_remove("tissue_harmonised")) |>
     c_upper = pmin(c_upper, 1.5),
   )
 
-# Plot abundance variability
+# Plot abundance/variability plot
+# Used for tissue landscape Figure panel B
 plot_abundance_variability =
   res_for_plot |>
   ggplot(aes(c_effect, v_effect, label = parameter)) +
@@ -205,30 +217,23 @@ plot_abundance_variability =
   scale_fill_brewer(palette = "Set1") +
   theme_multipanel
 
+# Clean environment
 rm( res_absolute_adjusted, res_for_plot )
 gc()
 
-# data_for_immune_proportion =
-#   readRDS("~/PostDoc/HCAquery/dev/data_for_immune_proportion.rds")
-#
-# # Stats
-# data_for_immune_proportion |>
-#
-#   mutate(is_immune = cell_type_harmonised!="non_immune") |>
-#
-#   # Stats
-#   dplyr::count(.sample, tissue_harmonised, is_immune) |>
-#   with_groups(.sample, ~ .x |> mutate(proportion = n/sum(n))) |>
-#   filter(tissue_harmonised=="heart" & proportion > 0.75)
 
-# RELATIVE
 
+#------------------------------#
+# Analyses of immune composition
+#------------------------------#
+
+# Read results
 res_relative = readRDS("~/PostDoc/immuneHealthyBodyMap/sccomp_on_HCA_0.2.1/tissue_relative_FALSE.rds")
 data_for_immune_proportion_relative = readRDS("~/PostDoc/immuneHealthyBodyMap/sccomp_on_HCA_0.2.1/input_relative.rds")
 res_relative_adjusted = readRDS("~/PostDoc/immuneHealthyBodyMap/sccomp_on_HCA_0.2.1/tissue_relative_FALSE_proportion_adjusted.rds")
 
-
-library(tidybulk)
+# Get dataset for the tSNE 
+# Figure tissue landscape panel C
 observed_proportion_PCA_df =
 	data_for_immune_proportion_relative |>
   
@@ -243,6 +248,8 @@ observed_proportion_PCA_df =
   tidyr::complete(nesting(.sample, tissue_harmonised, assay, sex, file_id), cell_type_harmonised, fill = list(observed_proportion = 0)) |>
   reduce_dimensions(.sample, cell_type_harmonised, observed_proportion, method="tSNE", action="get")
 
+# Plot for immune proportions WITH unwanted variation
+# Coloured by tissue
 observed_proportion_PCA_tissue =
   observed_proportion_PCA_df |>
   ggplot(aes(tSNE1, tSNE2)) +
@@ -259,6 +266,8 @@ observed_proportion_PCA_tissue =
     axis.ticks.x = element_blank()
   )
 
+# Plot for immune proportions WITH unwanted variation
+# Coloured by technology (technical variation)
 observed_proportion_PCA_batch =
   observed_proportion_PCA_df |>
   ggplot(aes(tSNE1, tSNE2)) +
@@ -275,6 +284,9 @@ observed_proportion_PCA_batch =
     axis.ticks.x = element_blank()
   )
 
+# Plot for immune proportions with NO unwanted variation
+# Including Age, ethnicity, sex, technology and random effects (datasets)
+# Coloured by technology (technical variation)
 adjusted_proportion_PCA =
 	res_relative_adjusted |> 
   left_join(
@@ -299,6 +311,8 @@ adjusted_proportion_PCA =
     axis.ticks.x = element_blank()
   )
 
+# Data for PCA plot where each point if a tissue
+# Used for figure of tissue landscape panel D
  res_absolute_for_PCA =
   res_relative |>
   filter(factor == "tissue_harmonised") |>
@@ -320,6 +334,7 @@ adjusted_proportion_PCA =
     transform = identity
   )
 
+# PCA plot for figure of tissue landscape panel D
 plot_tissue_PCA =
   res_absolute_for_PCA |>
   ggplot(aes(PC1, PC2, label = parameter)) +
@@ -329,14 +344,6 @@ plot_tissue_PCA =
   guides(fill="none")  +
   theme_multipanel
 
-# res_absolute_for_PCA |> attr("internals") %$% PCA |>
-#   ggplot2::autoplot( data = res_absolute_for_PCA, colour = 'parameter',
-#          loadings = TRUE, loadings.colour = 'blue',
-#          loadings.label = TRUE, loadings.label.size = 3)
-
-library(ggforce)
-library(ggpubr)
-
 
 tissue_color =
 	data_for_immune_proportion_relative |>
@@ -345,19 +352,20 @@ tissue_color =
 	mutate(color = dittoSeq::dittoColors()[1:n()]) |>
 	deframe()
 
-
+# Load cell type colors
 source("https://gist.githubusercontent.com/stemangiola/cfa08c45c28fdf223d4996a6c1256a39/raw/a175f7d0fe95ce663a440ecab0023ca4933e5ab8/color_cell_types.R")
 
+# Color coding for tissue
 cell_type_color = 
 	data_for_immune_proportion |> 
 	pull(cell_type_harmonised) |> 
 	unique() |> 
 	get_cell_type_color()
-
 names(cell_type_color) = names(cell_type_color) |>  str_replace("macrophage", "macro")
 
-
-
+# Dataset used for the heatmap of immune composition across tissues
+# These proportions are adjusted by unwanted variation
+# Including Sex, ethnicity, age, technology, and random effects (datasets)
 df_heatmap_relative_organ_cell_type =
   res_relative |>
   filter(factor == "tissue_harmonised") |>
@@ -386,26 +394,18 @@ df_heatmap_relative_organ_cell_type =
   with_groups(cell_type, ~ .x |>  mutate(`Mean diff` = mean(proportion, na.rm = TRUE))) |>
   mutate(cell_type = fct_reorder(cell_type, -`Mean diff`))
 
-library(tidyHeatmap)
-library(ComplexHeatmap)
-
-arcsin_sqrt = function(x) asin(sqrt(x))
-
+# heatmap of immune composition across tissues
+# These proportions are adjusted by unwanted variation
+# Including Sex, ethnicity, age, technology, and random effects (datasets)
 plot_circle_relative_tissue =
   df_heatmap_relative_organ_cell_type |>
   filter(cell_type != "non_immune") |> 
 	with_groups(parameter, ~ .x |> mutate(proportion = softmax(c_effect))) |> 
   mutate(proportion_label = proportion |> round(3) |> dropLeadingZero())  |> 
   	
-  # mutate(color_label = ifelse(proportion > 0.5, "black", "white")) |> 
-  #	mutate(proportion_text = as.character(proportion)) |> 
-  # Heatmap
+	# Use tidyHeatmap
   heatmap(
     tissue, cell_type, proportion,
-    # palette_value = circlize::colorRamp2(
-    #   seq(-3, 3, length.out = 11),
-    #   RColorBrewer::brewer.pal(11, "Spectral")
-    # ),
     palette_value = circlize::colorRamp2(seq(-8, -2, length=5), viridis::magma(5)),
     cluster_columns = FALSE,
     row_names_gp = gpar(fontsize = 6),
@@ -445,7 +445,7 @@ plot_circle_relative_tissue =
 	layer_text(.value = proportion_label, .size = 4)
 
 
-# Compose plot
+# Compose plot with patchwork
 second_line_first_column =
   
   plot_immune_proportion_dataset +
