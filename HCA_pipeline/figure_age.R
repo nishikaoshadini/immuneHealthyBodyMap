@@ -37,6 +37,8 @@ dropLeadingZero <-
 	function(l) {
 		stringr::str_replace(l, '0(?=.)', '')
 	}
+
+# Scale axis for ggplot
 S_sqrt <- function(x) {
 	sign(x) * sqrt(abs(x))
 }
