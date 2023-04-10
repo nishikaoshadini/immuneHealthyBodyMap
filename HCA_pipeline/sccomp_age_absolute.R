@@ -30,17 +30,25 @@ immune_non_immune_differential_composition_age =
 	# Filter embrios
 	filter(age_days_original > 365) |>
 
-		sccomp_glm(
-			formula_composition = ~age_days + tissue_harmonised + sex + ethnicity + assay + (1 | group) + (age_days | tissue_harmonised),
-			formula_variability = ~age_days + tissue_harmonised ,
-			.sample, is_immune,
-			check_outliers = F,
-			approximate_posterior_inference = FALSE,
-			cores = 20,
-			mcmc_seed = 42,
-			verbose = T,
-			prior_mean_variable_association = list(intercept = c(3.6539176, 0.5), slope = c(-0.5255242, 0.1), standard_deviation = c(20, 40))
-		)
+	# Drop tissues with too few samples
+	nest(data = -c(.sample, tissue_harmonised)) |> 
+	add_count(tissue_harmonised, name = "n_tissue_harmonised") |> 
+	filter(n_tissue_harmonised>2) |> 
+	select(-n_tissue_harmonised) |> 
+	unnest(data) |> 
+
+	# Model
+	sccomp_glm(
+		formula_composition = ~ age_days + tissue_harmonised + sex + ethnicity_simplified + assay_simplified + (1 | group) + (age_days | tissue_harmonised),
+		formula_variability = ~ age_days + tissue_harmonised ,
+		.sample, is_immune,
+		check_outliers = F,
+		approximate_posterior_inference = FALSE,
+		cores = 20,
+		mcmc_seed = 42,
+		verbose = T,
+		prior_mean_variable_association = list(intercept = c(3.6539176, 0.5), slope = c(-0.5255242, 0.1), standard_deviation = c(20, 40))
+	)
 
 immune_non_immune_differential_composition_age |>
 

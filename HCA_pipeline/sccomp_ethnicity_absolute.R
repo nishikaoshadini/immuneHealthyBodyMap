@@ -24,22 +24,16 @@ differential_composition_ethnicity_absolute =
 
   filter(development_stage!="unknown") |>
 
-  # filter
-  filter(ethnicity != "Pacific Islander") |>
-
   # Scale days
   mutate(age_days = age_days  |> scale(center = FALSE) |> as.numeric()) |>
 
-  unite("group", c(tissue_harmonised , file_id, ethnicity), remove = FALSE) |>
-  unite("tissue_harmonised_ethnicity", c(tissue_harmonised , ethnicity), remove = FALSE) |>
-
-  filter(ethnicity %in% c("Hispanic or Latin American", "European", "Chinese", "African")) |>
-
+	# Create one-to-many grouping for multilevel modelling
+  unite("tissue_harmonised_ethnicity", c(tissue_harmonised , ethnicity_simplified), remove = FALSE) |>
 
   # Estimate
   sccomp_glm(
-    formula_composition = ~ 0 + ethnicity + tissue_harmonised + sex  + age_days +  assay  + (ethnicity | tissue_harmonised_ethnicity),
-    formula_variability = ~ 0 + ethnicity + tissue_harmonised + sex,
+    formula_composition = ~ 0 + ethnicity_simplified + tissue_harmonised + sex  + age_days +  assay_simplified  + (ethnicity_simplified | tissue_harmonised_ethnicity),
+    formula_variability = ~ 0 + ethnicity_simplified + tissue_harmonised + sex,
     .sample, is_immune,
     check_outliers = F,
     approximate_posterior_inference = FALSE,
@@ -56,6 +50,6 @@ differential_composition_ethnicity_absolute |>
 
 # Counts RUV Absolute
 differential_composition_ethnicity_absolute |>
-  remove_unwanted_variation(~ 0 + ethnicity + (ethnicity | tissue_harmonised_ethnicity), ~ ethnicity) |>
+  remove_unwanted_variation(~ 0 + ethnicity_simplified + (ethnicity_simplified | tissue_harmonised_ethnicity), ~ ethnicity_simplified) |>
   saveRDS(output_file_2)
 

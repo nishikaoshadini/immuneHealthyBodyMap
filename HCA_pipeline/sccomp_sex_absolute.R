@@ -24,13 +24,15 @@ differential_composition_sex_absolute =
   # filter
   filter(development_stage!="unknown") |>
   filter(sex != "unknown") |>
-  filter(age_days_original >= 19 * 365) |>
+  filter(age_days_original >= 15 * 365) |>
 
-  # Keep shared tissues
+  # Keep big datasets
   nest(data = -c(.sample, sex, tissue_harmonised)) |>
   add_count(sex, tissue_harmonised) |>
   filter(n>2) |>
   select(-n) |>
+	
+	# Keep tissues with both sexes
   nest(data = -c(sex, tissue_harmonised)) |>
   add_count(tissue_harmonised) |>
   filter(n==2) |>
@@ -51,8 +53,8 @@ differential_composition_sex_absolute =
 
   # Estimate
   sccomp_glm(
-    formula_composition = ~ sex + tissue_harmonised + ethnicity  + age_days +  assay + (1 | group) + (sex | tissue_harmonised_sex),
-    formula_variability = ~ sex + tissue_harmonised + ethnicity,
+    formula_composition = ~ sex + tissue_harmonised + ethnicity_simplified  + age_days +  assay_simplified + (1 | group) + (sex | tissue_harmonised_sex),
+    formula_variability = ~ sex + tissue_harmonised + ethnicity_simplified,
     .sample, is_immune,
     check_outliers = F,
     approximate_posterior_inference = FALSE,

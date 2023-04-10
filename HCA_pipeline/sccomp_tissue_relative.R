@@ -15,11 +15,6 @@ output_file_1 = args[[3]]
 input_blood_proportion = args[[4]]
 output_file_2 = args[[5]]
 
-my_data =
-	readRDS(input_file) |>
-
-	# Fix groups
-	unite("group", c(tissue_harmonised , file_id), remove = FALSE)
 
 if(filter_blood=="TRUE"){
 
@@ -63,16 +58,19 @@ if(filter_blood=="TRUE"){
 }
 
 res_relative =
-  my_data |>
+	readRDS(input_file) |>
+	
+	# Fix groups
+	unite("group", c(tissue_harmonised , file_id), remove = FALSE) |> 
 
   # Estimate
   sccomp_glm(
-    formula_composition = ~ 0 + tissue_harmonised + sex + ethnicity  + age_days + assay + (tissue_harmonised | group),
-    formula_variability = ~ 0 + tissue_harmonised + sex + ethnicity,
+    formula_composition = ~ 0 + tissue_harmonised + sex + ethnicity_simplified  + age_days + assay_simplified + (tissue_harmonised | group),
+    formula_variability = ~ 0 + tissue_harmonised + sex + ethnicity_simplified,
     .sample, cell_type_harmonised,
-    check_outliers = F,
+    check_outliers = T,
     approximate_posterior_inference = FALSE,
-    cores = 10,
+    cores = 20,
     mcmc_seed = 42,
     verbose = T,
     prior_mean_variable_association = list(intercept = c(3.6539176, 0.5), slope = c(-0.5255242, 0.1), standard_deviation = c(20, 40))

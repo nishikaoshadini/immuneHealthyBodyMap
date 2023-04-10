@@ -18,14 +18,15 @@ output_file_2 = args[[5]]
 res_absolute =
   readRDS(input_file) |>
   mutate(is_immune = as.character(is_immune)) |>
+	
 
-
+	
   # Fix groups
   unite("group", c(tissue_harmonised , file_id), remove = FALSE) |>
 
   sccomp_glm(
-    formula_composition = ~ 0 + tissue_harmonised + sex + ethnicity  + age_days + assay + (tissue_harmonised | group),
-    formula_variability = ~ 0 + tissue_harmonised + sex + ethnicity ,
+    formula_composition = ~ 0 + tissue_harmonised + sex + ethnicity_simplified  + age_days + assay_simplified + (tissue_harmonised | group),
+    formula_variability = ~ 0 + tissue_harmonised + sex + ethnicity_simplified ,
     .sample, is_immune,
     check_outliers = T,
     approximate_posterior_inference = FALSE,
@@ -38,5 +39,5 @@ res_absolute =
 res_absolute |> saveRDS(output_file_1)
 
 res_absolute |>
-		remove_unwanted_variation(~ 0 + tissue_harmonised) |>
+		remove_unwanted_variation(~ 0 + tissue_harmonised, ~ 0 + tissue_harmonised ) |>
 		saveRDS(output_file_2)

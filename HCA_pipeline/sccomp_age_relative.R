@@ -108,7 +108,7 @@ res_relative =
   # Filter out small dataset
   nest(data = -c(.sample, file_id)) |> 
   add_count(file_id, name = "n_file_id") |> 
-  filter(n_file_id > 3) |> 
+  filter(n_file_id > 2) |> 
   unnest(data) |> 
   
   # Filter out small dataset

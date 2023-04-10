@@ -126,7 +126,7 @@ res_relative =
   # Filter out small dataset
   nest(data = -c(.sample, file_id)) |> 
   add_count(file_id, name = "n_file_id") |> 
-  filter(n_file_id > 3) |> 
+  filter(n_file_id > 2) |> 
   unnest(data) |> 
   
   # Filter out small dataset
@@ -137,8 +137,8 @@ res_relative =
 
   # Estimate
   sccomp_glm(
-    formula_composition = ~ sex + tissue_harmonised + ethnicity  + age_days +  assay + (1 | group) + (sex | tissue_harmonised_sex),
-    formula_variability = ~ sex + tissue_harmonised + ethnicity,
+    formula_composition = ~ sex + tissue_harmonised + ethnicity_simplified  + age_days +  assay_simplified + (1 | group) + (sex | tissue_harmonised_sex),
+    formula_variability = ~ sex + tissue_harmonised + ethnicity_simplified,
     .sample, cell_type_harmonised,
     check_outliers = F,
     approximate_posterior_inference = FALSE,

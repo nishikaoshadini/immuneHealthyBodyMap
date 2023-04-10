@@ -21,10 +21,7 @@ my_data =
   # Scale days
   mutate(age_days = age_days  |> scale(center = FALSE) |> as.numeric()) |>
 
-  unite("group", c(tissue_harmonised , file_id, ethnicity), remove = FALSE) |>
-  unite("tissue_harmonised_ethnicity", c(tissue_harmonised , ethnicity), remove = FALSE) |>
-
-  filter(ethnicity %in% c("Hispanic or Latin American", "European", "Chinese", "African"))
+  unite("tissue_harmonised_ethnicity", c(tissue_harmonised , ethnicity_simplified), remove = FALSE) 
 
 if(filter_blood=="TRUE"){
 
@@ -100,8 +97,8 @@ res_relative =
 
   # Estimate
   sccomp_glm(
-    formula_composition = ~ 0 + ethnicity + tissue_harmonised + sex  + age_days +  assay  + (ethnicity | tissue_harmonised_ethnicity),
-    formula_variability = ~ 0 + ethnicity + tissue_harmonised + sex,
+    formula_composition = ~ 0 + ethnicity_simplified + tissue_harmonised + sex  + age_days +  assay_simplified  + (ethnicity_simplified | tissue_harmonised_ethnicity),
+    formula_variability = ~ 0 + ethnicity_simplified + tissue_harmonised + sex,
     .sample, cell_type_harmonised,
     check_outliers = F,
     approximate_posterior_inference = FALSE,
@@ -117,5 +114,5 @@ res_relative |>
 
 # Remove unwanted variation
 res_relative |>
-  remove_unwanted_variation(~ 0 + ethnicity, ~ 0 + ethnicity) |>
+  remove_unwanted_variation(~ 0 + ethnicity_simplified, ~ 0 + ethnicity_simplified) |>
   saveRDS(output_file_2)

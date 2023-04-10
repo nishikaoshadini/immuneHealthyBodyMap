@@ -76,8 +76,8 @@ res_relative =
 
 		# Estimate
 		sccomp_glm(
-			formula_composition = ~ 0 + assay + tissue_harmonised + sex + ethnicity + age_days + (assay | group) ,
-			formula_variability = ~ 0 + assay + tissue_harmonised + sex + ethnicity,
+			formula_composition = ~ 0 + assay + tissue_harmonised + sex + ethnicity_simplified + age_days + (assay | group) ,
+			formula_variability = ~ 0 + assay + tissue_harmonised + sex + ethnicity_simplified,
 			.sample, cell_type_harmonised,
 			check_outliers = F,
 			approximate_posterior_inference = FALSE,
