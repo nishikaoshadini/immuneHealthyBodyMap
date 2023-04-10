@@ -78,7 +78,6 @@ tissue_color =
 
 # Load cell type colors
 source("https://gist.githubusercontent.com/stemangiola/cfa08c45c28fdf223d4996a6c1256a39/raw/a175f7d0fe95ce663a440ecab0023ca4933e5ab8/color_cell_types.R")
-
 cell_type_color = 
   data_for_immune_proportion |> 
   pull(cell_type_harmonised) |> 

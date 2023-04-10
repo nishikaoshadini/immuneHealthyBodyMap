@@ -8,6 +8,8 @@ library(sccomp)
 library(magrittr)
 library(patchwork)
 library(glue)
+library(forcats)
+
 source(
   "https://gist.githubusercontent.com/stemangiola/fc67b08101df7d550683a5100106561c/raw/a0853a1a4e8a46baf33bad6268b09001d49faf51/ggplot_theme_multipanel"
 )
@@ -92,7 +94,27 @@ common_data =
 	filter(!is.na(tissue_harmonised)) |>
 
 	# Mutate days
-	filter(development_stage!="unknown")
+	filter(development_stage!="unknown") |> 
+	
+	# Establish the baseline for simplified ethnicity. European as it is the most represented
+	# This is so I have a tight intercept term for data simulation
+	mutate(ethnicity_simplified = case_when(
+		ethnicity %in% c("European", "Chinese", "African", "Hispanic or Latin American") ~ ethnicity,
+		TRUE ~ "Other"
+	)) |> 
+	mutate(
+		ethnicity_simplified = 
+			ethnicity_simplified |> 
+			fct_relevel(c("European", "Chinese", "African", "Hispanic or Latin American", "Other")
+	)) |> 
+	
+	# Establish the baseline for simplified assay
+	# Summarise assays to get more stable data simulations 
+	# 10x as baseline
+	mutate(assay_simplified = if_else(assay |> str_detect("10x"), "10x", assay)) |> 
+	mutate(assay_simplified = factor(assay_simplified)) 
+	
+	
 
 # Save
 common_data |> saveRDS(output_common)

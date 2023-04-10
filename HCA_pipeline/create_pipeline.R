@@ -9,13 +9,13 @@ args = commandArgs(trailingOnly=TRUE)
 run_directory = args[[1]]
 
 vast_directory = "/vast/projects/RCP/human_cell_atlas"
-R_code_directory = glue("/home/users/allstaff/mangiola.s//PostDoc/CuratedAtlasQueryR/dev/HCA_pipeline")
-root = "/home/users/allstaff/mangiola.s//PostDoc/CuratedAtlasQueryR/dev"
+R_code_directory = glue("/home/users/allstaff/mangiola.s//PostDoc/immuneHealthyBodyMap/HCA_pipeline")
+root = "/home/users/allstaff/mangiola.s//PostDoc/immuneHealthyBodyMap"
 tab = "\t"
 metadata_sqlite = glue("{vast_directory}/metadata_annotated_0.1.5.sqlite")
 
 harmonised_annotation = glue("{root}/cell_metadata_with_harmonised_annotation.rds")
-lineage_df = "~/PostDoc/CuratedAtlasQueryR/dev/metadata_cell_type.csv"
+lineage_df = "~/PostDoc/immuneHealthyBodyMap/metadata_cell_type.csv"
 
 run_directory |> dirname() |> dir.create( showWarnings = FALSE, recursive = TRUE)
 

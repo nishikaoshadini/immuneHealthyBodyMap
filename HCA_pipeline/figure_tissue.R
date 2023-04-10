@@ -68,19 +68,23 @@ S_sqrt_trans <- function() scales::trans_new("S_sqrt",S_sqrt,IS_sqrt)
 
 # Remove unwanted variation from the immune cellularity
 # Including effect of Age, sex, ethnicity, technology, 
-# and rendom effects line datasets
+# and random effects line datasets
 # This is used to overlay boxplots on the observed proportions
 res_generated_proportions =
 	res_absolute |>
-	sccomp_replicate(number_of_draws = 20) |>
+	sccomp_replicate(~ 0 + tissue_harmonised + sex + ethnicity  + age_days, number_of_draws = 100 ) |>
 	filter(is_immune=="TRUE") |>
 	left_join(
 		data_for_immune_proportion |>
-			select(.sample, tissue_harmonised)
+			dplyr::select(.sample, tissue_harmonised) |>
+			distinct()
 	) |>
-	with_groups(tissue_harmonised, ~ .x |> sample_n(30, replace = T))
+	
+	# Subset for each sample
+	with_groups(tissue_harmonised, ~ .x |> sample_n(200, replace = T))
+ 
 
-# Plot observed proportions of immune cells across non-lymhoid tissues
+# Plot observed proportions of immune cells across non-lymphoid tissues
 # And overlaying boxplots of the estimated proportion distribution
 # Excluding the unwanted variation
 plot_immune_proportion_dataset =
@@ -94,7 +98,7 @@ plot_immune_proportion_dataset =
   
   # Add multilevel proportion medians
   left_join(
-    res_generated_proportions |>
+  	res_generated_proportions |>
       with_groups(tissue_harmonised, ~ .x |> summarise(median_generated = median(generated_proportions, na.rm = TRUE)))
   ) |>
   
@@ -116,7 +120,7 @@ plot_immune_proportion_dataset =
   ggforestplot::geom_stripes(odd = "#33333333", even = "#00000000") +
   geom_jitter(aes(size = sum, color=file_id), width = 0) +
   geom_boxplot(aes(generated_proportions, fct_reorder(tissue_harmonised, median_generated)), color="black", data =
-                 res_generated_proportions |>
+  						 	res_generated_proportions |>
                  with_groups(tissue_harmonised, ~ .x |> mutate(median_generated = median(generated_proportions, na.rm = TRUE))) |>
                  clean_names(),
                fill = NA, outlier.shape = NA, lwd=0.2
@@ -164,13 +168,12 @@ res_for_plot =
   res_absolute |>
   filter(factor == "tissue_harmonised") |>
   filter(is_immune == "TRUE") |>
-  mutate(parameter = parameter |> str_remove("tissue_harmonised")) |>
-  mutate(intercept = coefficients_regression[1], slope = coefficients_regression[2]) |>
+  mutate(tissue_harmonised = parameter |> str_remove("tissue_harmonised")) |>
+  #mutate(intercept = coefficients_regression[1], slope = coefficients_regression[2]) |>
   
 
-# Define diversity in abundance and variability across tissues, far from the madian
-# Used for tissue landscape Figure panel B
-mutate(tissue_harmonised = parameter |> str_remove("tissue_harmonised")) |>
+	# Define diversity in abundance and variability across tissues, far from the madian
+	# Used for tissue landscape Figure panel B
   arrange(desc(c_effect)) |>
   mutate(	c_significant = ( row_number() <=7 | row_number() >= n() -3 ) & !tissue_harmonised %in%	c("blood", "lymph node", "spleen", "bone")	) |>
   arrange(desc(v_effect)) |>
@@ -242,7 +245,8 @@ observed_proportion_PCA_df =
   
   add_count(tissue_harmonised) |>
   filter(n > 5) |>
-  select(-n) |>
+  dplyr::select(-n) |>
+	
   dplyr::count(.sample, cell_type_harmonised, tissue_harmonised, assay, sex, file_id) |>
   with_groups(.sample, ~ .x |> mutate(observed_proportion = n/sum(n))) |>
   tidyr::complete(nesting(.sample, tissue_harmonised, assay, sex, file_id), cell_type_harmonised, fill = list(observed_proportion = 0)) |>
@@ -295,8 +299,8 @@ adjusted_proportion_PCA =
   ) |>
   add_count(tissue_harmonised) |>
   filter(n > 5) |>
-  reduce_dimensions(.sample , cell_type_harmonised, adjusted_proportion, method="tSNE", action="get") |>
-  ggplot(aes(tSNE1, tSNE2)) +
+  reduce_dimensions(.sample , cell_type_harmonised, adjusted_proportion, method="UMAP", action="get") |>
+  ggplot(aes(UMAP1, UMAP2)) +
   geom_point(aes(fill = tissue_harmonised), shape=21, stroke = NA, size=0.2) +
   #ggdensity::geom_hdr_lines(aes(color = tissue_harmonised)) +
   scale_fill_manual(values = dittoSeq::dittoColors()) +
@@ -446,34 +450,20 @@ plot_circle_relative_tissue =
 
 
 # Compose plot with patchwork
-second_line_first_column =
+first_line_first_column =
   
-  plot_immune_proportion_dataset +
-  theme( plot.margin = margin(0, 0, 0, 0, "pt"),  legend.key.size = unit(0.2, 'cm'), legend.position="bottom")
-
-
-second_line_second_column =
-  (
-    plot_abundance_variability /
-    	(
-    		observed_proportion_PCA_tissue |
-    			observed_proportion_PCA_batch |
-    			adjusted_proportion_PCA
-    	) /
-    	plot_tissue_PCA 
-      
-  ) +
-  plot_layout( guides = 'collect', heights = c(2, 1, 2) )   &
+  (plot_immune_proportion_dataset|plot_tissue_PCA) +
+	plot_layout( guides = 'collect', width = c(10,6) ) &
   theme( plot.margin = margin(0, 0, 0, 0, "pt"),  legend.key.size = unit(0.2, 'cm'), legend.position="bottom")
 
 
 
 p =
   (
-  	((second_line_first_column | second_line_second_column ) + plot_layout( width = c(1,1.5) )) /
+  	first_line_first_column /
     wrap_heatmap(plot_circle_relative_tissue, padding = unit(c(-67, -10, -0, -30), "points" ))
   ) + 
-	plot_layout( guides = 'collect', heights = c(1,1) ) &
+	plot_layout( guides = 'collect', heights = c(6,9) ) &
   theme( plot.margin = margin(0, 0, 0, 0, "pt"),  legend.key.size = unit(0.2, 'cm'), legend.position="bottom")
 
 
