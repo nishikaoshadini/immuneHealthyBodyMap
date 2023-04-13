@@ -51,7 +51,7 @@ estimate_tissue <-
 save(estimate_tissue, file="../Outputs/sccompestimate_tissue.Rdata")
 
 
-# glm for full model without random effect
+# glm without tissue
 estimate_tissue_0 <-
   meta.anno.sub |>
   filter(!is.na(age_days)) |>
