@@ -71,14 +71,6 @@ lapply(seurat_object, function(x) ncol(x))
 # seurat_object = readRDS("seurat_object.rds")
 
 
-# Taking intersect of variable_features 
-print("Intersect: variable_features")
-variable_features <- intersect(variable_features, 
-                               Reduce(intersect, lapply(seurat_object, function(x) rownames(x))))
-length(variable_features) 
-
-
-
 # dataset using these features
 print("PCA step")
 seurat_object <- lapply(X = seurat_object, FUN = function(x) {
