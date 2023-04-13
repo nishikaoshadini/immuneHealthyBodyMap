@@ -51,7 +51,7 @@ estimate_sex <-
 save(estimate_sex, file="../Outputs/sccompestimate_sex.Rdata")
 
 
-# glm for full model without sex as random effect
+# glm without sex 
 estimate_sex_0 <-
   meta.anno.sub |>
   filter(!is.na(age_days)) |>
