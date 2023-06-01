@@ -7,6 +7,7 @@ Characterising the immune system in health and disease across traits like ageing
 
 ## Code for figures
 
+- [Figure 2](https://github.com/nishikaoshadini/immuneHealthyBodyMap/blob/master/Nishika/landscape_figure.R)
 - [Figure 3](https://github.com/stemangiola/immuneHealthyBodyMap/blob/master/HCA_pipeline/figure_age.R)
 - [Figure 4](https://github.com/stemangiola/immuneHealthyBodyMap/blob/master/HCA_pipeline/figure_communication.R)
 - [Figure 5](https://github.com/stemangiola/immuneHealthyBodyMap/blob/master/HCA_pipeline/figure_demography.R)
